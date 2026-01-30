@@ -16,11 +16,17 @@ export class AuthGuard implements CanActivate {
         const req = ctx.getContext().req;
 
         const authHeader = req.headers.authorization;
-        if (!authHeader) throw new UnauthorizedException();
+        if (!authHeader) {
+            throw new UnauthorizedException('Authorization header missing');
+        }
 
-        const token = authHeader.replace('Bearer ', '');
+        const [type, token] = authHeader.split(' ');
+
+        if (type !== 'Bearer' || !token) {
+            throw new UnauthorizedException('Invalid authorization format');
+        }
+
         const user = await this.authService.validateToken(token);
-
         req.user = user;
         return true;
     }

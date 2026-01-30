@@ -9,24 +9,30 @@ export class AuthService {
                 process.env.AUTH_SERVICE_URL!,
                 {
                     query: `
-            query {
-              validateToken {
-                id
-                email
-              }
+          query {
+            validateToken {
+              id
+              email
             }
-          `,
+          }
+        `,
                 },
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
+                    timeout: 5000,
                 },
             );
 
+            if (!res.data?.data?.validateToken) {
+                throw new UnauthorizedException();
+            }
+
             return res.data.data.validateToken;
-        } catch {
+        } catch (error) {
             throw new UnauthorizedException('Invalid token');
         }
     }
+
 }

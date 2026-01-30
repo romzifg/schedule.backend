@@ -6,6 +6,7 @@ import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterInput } from '../dto/register.input';
 import { LoginInput } from '../dto/login.input';
+import { AuthErrors } from './auth.error';
 
 @Injectable()
 export class AuthService {
@@ -15,16 +16,24 @@ export class AuthService {
     ) { }
 
     async register(input: RegisterInput): Promise<string> {
-        const hashedPassword = await bcrypt.hash(input.password, 10);
+        try {
+            const hashedPassword = await bcrypt.hash(input.password, 10);
 
-        const user = await this.prisma.user.create({
-            data: {
-                email: input.email,
-                password: hashedPassword,
-            },
-        });
+            const user = await this.prisma.user.create({
+                data: {
+                    email: input.email,
+                    password: hashedPassword,
+                },
+            });
 
-        return this.signToken(user.id, user.email);
+            return this.signToken(user.id, user.email);
+        } catch (error) {
+            if (error.code === 'P2002') {
+                throw AuthErrors.EMAIL_ALREADY_EXISTS();
+            }
+
+            throw AuthErrors.INTERNAL_ERROR();
+        }
     }
 
     async login(input: LoginInput): Promise<string> {
@@ -33,7 +42,7 @@ export class AuthService {
         });
 
         if (!user) {
-            throw new UnauthorizedException('Invalid credentials');
+            throw AuthErrors.INVALID_CREDENTIALS();
         }
 
         const isValid = await bcrypt.compare(
@@ -42,11 +51,12 @@ export class AuthService {
         );
 
         if (!isValid) {
-            throw new UnauthorizedException('Invalid credentials');
+            throw AuthErrors.INVALID_CREDENTIALS();
         }
 
         return this.signToken(user.id, user.email);
     }
+
 
     private signToken(userId: string, email: string): string {
         return this.jwtService.sign({
@@ -61,24 +71,37 @@ export class AuthService {
                 process.env.AUTH_SERVICE_URL!,
                 {
                     query: `
-            query {
-              validateToken {
-                id
-                email
-              }
-            }
-          `,
+                        query {
+                            validateToken {
+                            id
+                            email
+                            }
+                        }
+                    `,
                 },
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
+                    timeout: 5000,
                 },
             );
 
             return response.data.data.validateToken;
         } catch (error) {
-            throw new UnauthorizedException('Invalid token');
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 401) {
+                    throw AuthErrors.INVALID_TOKEN();
+                }
+
+                if (!error.response) {
+                    // Network / timeout
+                    throw AuthErrors.TOKEN_SERVICE_UNAVAILABLE();
+                }
+            }
+
+            throw AuthErrors.INTERNAL_ERROR();
         }
     }
+
 }

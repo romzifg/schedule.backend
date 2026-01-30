@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["schedule"]
 }
 
 model Customer {
@@ -14,6 +15,8 @@ model Customer {
   updatedAt DateTime @updatedAt
 
   schedules Schedule[]
+
+  @@schema("schedule")
 }
 
 model Doctor {
@@ -23,6 +26,9 @@ model Doctor {
   updatedAt DateTime @updatedAt
 
   schedules Schedule[]
+
+
+  @@schema("schedule")
 }
 
 model Schedule {
@@ -37,4 +43,6 @@ model Schedule {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@schema("schedule")
 }

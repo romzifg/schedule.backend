@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { RegisterInput } from '../dto/register.input';
 import { LoginInput } from '../dto/login.input';
 import { User } from '../model/user.model';
+import { GqlAuthGuard } from './guard/gql-auth.guard';
 
 @Resolver()
 export class AuthResolver {
@@ -24,7 +25,7 @@ export class AuthResolver {
     /**
      * Dipakai service lain untuk validasi token
      */
-    @UseGuards(AuthGuard('jwt'))
+    @UseGuards(GqlAuthGuard)
     @Query(() => User)
     validateToken(@Context('req') req) {
         return req.user;
