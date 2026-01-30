@@ -2,8 +2,8 @@ import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { CustomerService } from './customer.service';
-import { Customer } from 'src/model/customer.model';
-import { AuthGuard } from 'src/auth/auth.guard';
+import { Customer } from '../model/customer.model';
+import { AuthGuard } from '../auth/auth.guard';
 import { CreateCustomerInput } from './dto/create-customer-input.dto';
 import { UpdateCustomerInput } from './dto/update-customer-input.dto';
 

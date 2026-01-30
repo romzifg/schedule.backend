@@ -1,29 +1,46 @@
-import { INestApplication, UnauthorizedException } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import request from 'supertest';
+import * as request from 'supertest'; // Ubah ini
 
-import { AppModule } from '../src/app.module';
+import { TestAppModule } from './test-app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthService } from '../src/auth/auth.service';
+import {
+  createMockPrismaService,
+  mockSchedules,
+} from './mocks/prisma.service.mock';
+
+// Mock AuthService
+const mockAuthService = {
+  validateToken: jest.fn().mockImplementation(async (token: string) => {
+    if (token !== 'valid-token') {
+      throw new Error('Invalid token');
+    }
+    return {
+      id: 'user-1',
+      email: 'test@mail.com',
+    };
+  }),
+};
 
 describe('Schedule Service (E2E)', () => {
   let app: INestApplication;
+  let mockPrismaService: any;
 
   beforeAll(async () => {
+    process.env.JWT_SECRET = 'test-secret-key';
+    process.env.JWT_EXPIRES = '1d';
+    process.env.AUTH_SERVICE_URL = 'http://mock-auth-service';
+
+    mockPrismaService = createMockPrismaService();
+
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [TestAppModule],
     })
+      .overrideProvider(PrismaService)
+      .useValue(mockPrismaService)
       .overrideProvider(AuthService)
-      .useValue({
-        validateToken: jest.fn((token: string) => {
-          if (token === 'valid-token') {
-            return {
-              id: 'user-1',
-              email: 'test@mail.com',
-            };
-          }
-          throw new UnauthorizedException();
-        }),
-      })
+      .useValue(mockAuthService)
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -31,155 +48,311 @@ describe('Schedule Service (E2E)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
-  it('should reject request without token', async () => {
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .send({
-        query: `
-          query {
-            customers {
-              id
-            }
-          }
-        `,
-      });
-
-    expect(res.body.errors).toBeDefined();
+  beforeEach(() => {
+    mockSchedules.length = 0;
+    jest.clearAllMocks();
   });
 
-  it('should create customer with valid token', async () => {
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', 'Bearer valid-token')
-      .send({
-        query: `
-          mutation CreateCustomer($input: CreateCustomerInput!) {
-            createCustomer(input: $input) {
-              id
-              name
-              email
+  describe('Authentication', () => {
+    it('should reject request without token', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              customers {
+                id
+              }
             }
-          }
-        `,
-        variables: {
-          input: {
-            name: 'John',
-            email: 'john@mail.com',
+          `,
+        });
+
+      expect(res.body.errors).toBeDefined();
+    });
+
+    it('should reject request with invalid token', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer invalid-token')
+        .send({
+          query: `
+            query {
+              customers {
+                id
+              }
+            }
+          `,
+        });
+
+      expect(res.body.errors).toBeDefined();
+    });
+
+    it('should accept request with valid token', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            query {
+              customers {
+                id
+              }
+            }
+          `,
+        });
+
+      expect(res.body.errors).toBeUndefined();
+      expect(res.body.data.customers).toBeDefined();
+    });
+  });
+
+  describe('Customer Operations', () => {
+    it('should create customer with valid token', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            mutation CreateCustomer($input: CreateCustomerInput!) {
+              createCustomer(input: $input) {
+                id
+                name
+                email
+              }
+            }
+          `,
+          variables: {
+            input: {
+              name: 'John',
+              email: 'john@mail.com',
+            },
           },
-        },
-      });
+        });
 
-    expect(res.body.data.createCustomer).toBeDefined();
+      expect(res.body.errors).toBeUndefined();
+      expect(res.body.data.createCustomer).toBeDefined();
+      expect(res.body.data.createCustomer.name).toBe('John');
+      expect(res.body.data.createCustomer.email).toBe('john@mail.com');
+    });
+
+    it('should get all customers', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            query {
+              customers {
+                id
+                name
+                email
+              }
+            }
+          `,
+        });
+
+      expect(res.body.errors).toBeUndefined();
+      expect(res.body.data.customers).toBeDefined();
+      expect(Array.isArray(res.body.data.customers)).toBe(true);
+    });
   });
 
-  it('should create doctor with valid token', async () => {
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', 'Bearer valid-token')
-      .send({
-        query: `
-          mutation CreateDoctor($input: CreateDoctorInput!) {
-            createDoctor(input: $input) {
-              id
-              name
+  describe('Doctor Operations', () => {
+    it('should create doctor with valid token', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            mutation CreateDoctor($input: CreateDoctorInput!) {
+              createDoctor(input: $input) {
+                id
+                name
+              }
             }
-          }
-        `,
-        variables: {
-          input: {
-            name: 'Dr. Strange',
+          `,
+          variables: {
+            input: {
+              name: 'Dr. Strange',
+            },
           },
-        },
-      });
+        });
 
-    expect(res.body.data.createDoctor).toBeDefined();
+      expect(res.body.errors).toBeUndefined();
+      expect(res.body.data.createDoctor).toBeDefined();
+      expect(res.body.data.createDoctor.name).toBe('Dr. Strange');
+    });
+
+    it('should get all doctors', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            query {
+              doctors {
+                id
+                name
+              }
+            }
+          `,
+        });
+
+      expect(res.body.errors).toBeUndefined();
+      expect(res.body.data.doctors).toBeDefined();
+      expect(Array.isArray(res.body.data.doctors)).toBe(true);
+    });
   });
 
-  it('should create schedule successfully', async () => {
-    // get customer
-    const customerRes = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', 'Bearer valid-token')
-      .send({
-        query: `
-          query {
-            customers {
-              id
+  describe('Schedule Operations', () => {
+    it('should create schedule successfully', async () => {
+      const customerRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            query {
+              customers {
+                id
+              }
             }
-          }
-        `,
-      });
+          `,
+        });
 
-    const customerId = customerRes.body.data.customers[0].id;
+      const customerId = customerRes.body.data.customers[0].id;
 
-    // get doctor
-    const doctorRes = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', 'Bearer valid-token')
-      .send({
-        query: `
-          query {
-            doctors {
-              id
+      const doctorRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            query {
+              doctors {
+                id
+              }
             }
-          }
-        `,
-      });
+          `,
+        });
 
-    const doctorId = doctorRes.body.data.doctors[0].id;
+      const doctorId = doctorRes.body.data.doctors[0].id;
 
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', 'Bearer valid-token')
-      .send({
-        query: `
-          mutation CreateSchedule($input: CreateScheduleInput!) {
-            createSchedule(input: $input) {
-              id
-              objective
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            mutation CreateSchedule($input: CreateScheduleInput!) {
+              createSchedule(input: $input) {
+                id
+                objective
+                customerId
+                doctorId
+              }
             }
-          }
-        `,
-        variables: {
-          input: {
-            objective: 'Consultation',
-            customerId,
-            doctorId,
-            scheduledAt: new Date().toISOString(),
+          `,
+          variables: {
+            input: {
+              objective: 'Consultation',
+              customerId,
+              doctorId,
+              scheduledAt: new Date().toISOString(),
+            },
           },
-        },
-      });
+        });
 
-    expect(res.body.data.createSchedule).toBeDefined();
-  });
+      expect(res.body.errors).toBeUndefined();
+      expect(res.body.data.createSchedule).toBeDefined();
+      expect(res.body.data.createSchedule.objective).toBe('Consultation');
+    });
 
-  it('should reject schedule conflict', async () => {
-    const now = new Date().toISOString();
+    it('should reject schedule conflict', async () => {
+      const customerRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `query { customers { id } }`,
+        });
 
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', 'Bearer valid-token')
-      .send({
-        query: `
-          mutation CreateSchedule($input: CreateScheduleInput!) {
-            createSchedule(input: $input) {
-              id
+      const customerId = customerRes.body.data.customers[0].id;
+
+      const doctorRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `query { doctors { id } }`,
+        });
+
+      const doctorId = doctorRes.body.data.doctors[0].id;
+      const scheduledAt = new Date(Date.now() + 7200000).toISOString();
+
+      await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            mutation CreateSchedule($input: CreateScheduleInput!) {
+              createSchedule(input: $input) {
+                id
+              }
             }
-          }
-        `,
-        variables: {
-          input: {
-            objective: 'Conflict',
-            customerId: 'any',
-            doctorId: 'any',
-            scheduledAt: now,
+          `,
+          variables: {
+            input: {
+              objective: 'First Appointment',
+              customerId,
+              doctorId,
+              scheduledAt,
+            },
           },
-        },
-      });
+        });
 
-    expect(res.body.errors).toBeDefined();
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            mutation CreateSchedule($input: CreateScheduleInput!) {
+              createSchedule(input: $input) {
+                id
+              }
+            }
+          `,
+          variables: {
+            input: {
+              objective: 'Conflict Appointment',
+              customerId,
+              doctorId,
+              scheduledAt,
+            },
+          },
+        });
+
+      expect(res.body.errors).toBeDefined();
+    });
+
+    it('should get all schedules', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          query: `
+            query {
+              schedules {
+                id
+                objective
+              }
+            }
+          `,
+        });
+
+      expect(res.body.errors).toBeUndefined();
+      expect(res.body.data.schedules).toBeDefined();
+      expect(Array.isArray(res.body.data.schedules)).toBe(true);
+    });
   });
 });

@@ -57,13 +57,24 @@ cd project-root
 #### Auth Service (`auth-service/.env`)
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/auth_db
-JWT_SECRET=supersecretkey
+JWT_SECRET=test-secret-key-for-e2e-testing
+JWT_EXPIRES=1d
+```
+
+```env.test
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/auth_db_test
+JWT_SECRET=test-secret-key-for-e2e-testing
 JWT_EXPIRES=1d
 ```
 
 #### Schedule Service (`schedule-service/.env`)
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/schedule_db
+AUTH_SERVICE_URL=http://auth-service:3001/graphql
+```
+
+```env.test
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/schedule_db_test
 AUTH_SERVICE_URL=http://auth-service:3001/graphql
 ```
 

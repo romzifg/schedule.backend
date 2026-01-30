@@ -2,7 +2,7 @@ import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { DoctorService } from './doctor.service';
-import { Doctor } from 'src/model/doctor.model';
+import { Doctor } from '../model/doctor.model';
 import { AuthGuard } from '../auth/auth.guard';
 import { CreateDoctorInput } from './dto/create-doctor-input';
 import { UpdateDoctorInput } from './dto/update-doctor-input';

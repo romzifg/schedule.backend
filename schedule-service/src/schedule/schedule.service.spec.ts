@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ScheduleService } from './schedule.service';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { BadRequestException } from '@nestjs/common';
 
 describe('ScheduleService', () => {

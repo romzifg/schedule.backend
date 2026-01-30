@@ -2,8 +2,8 @@ import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { ScheduleService } from './schedule.service';
-import { Schedule } from 'src/model/schedule.model';
-import { AuthGuard } from 'src/auth/auth.guard';
+import { Schedule } from '../model/schedule.model';
+import { AuthGuard } from '../auth/auth.guard';
 import { CreateScheduleInput } from './dto/create-schedule-input.dto';
 
 @UseGuards(AuthGuard)
