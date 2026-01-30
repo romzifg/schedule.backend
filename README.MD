@@ -67,6 +67,19 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/schedule_db
 AUTH_SERVICE_URL=http://auth-service:3001/graphql
 ```
 
+#### Global (`.env`)
+```env
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=app_db
+
+AUTH_DATABASE_URL=postgresql://postgres:postgres@postgres:5432/app_db?schema=auth
+SCHEDULE_DATABASE_URL=postgresql://postgres:postgres@postgres:5432/app_db?schema=schedule
+
+JWT_SECRET=supersecretkey
+JWT_EXPIRES=1d
+```
+
 ---
 
 ### 3️⃣ Jalankan Database Migration
