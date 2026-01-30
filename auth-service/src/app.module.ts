@@ -4,6 +4,7 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
@@ -13,6 +14,9 @@ import { AuthModule } from './auth/auth.module';
       playground: true,
       introspection: true,
       context: ({ req, res }) => ({ req, res }),
+    }),
+    ConfigModule.forRoot({
+      isGlobal: true,
     }),
     AuthModule,
   ],
