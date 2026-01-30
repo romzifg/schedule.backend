@@ -59,6 +59,7 @@ cd project-root
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/auth_db
 JWT_SECRET=test-secret-key-for-e2e-testing
 JWT_EXPIRES=1d
+PORT=3001
 ```
 
 ```env.test
@@ -71,6 +72,7 @@ JWT_EXPIRES=1d
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/schedule_db
 AUTH_SERVICE_URL=http://auth-service:3001/graphql
+PORT=3002
 ```
 
 ```env.test
